@@ -17,11 +17,13 @@ class HealthController extends AbstractController
     public function __invoke(Connection $connection): JsonResponse
     {
         $database = 'ok';
+        $dbError = null;
 
         try {
             $connection->executeQuery('SELECT 1')->fetchOne();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             $database = 'unavailable';
+            $dbError = $e->getMessage();
         }
 
         return $this->json([
@@ -29,8 +31,9 @@ class HealthController extends AbstractController
             'status' => $database === 'ok' ? 'ok' : 'degraded',
             'checks' => [
                 'database' => $database,
+                'database_error' => $dbError,
             ],
             'timestamp' => (new \DateTimeImmutable())->format(DATE_ATOM),
-        ], $database === 'ok' ? 200 : 503);
+        ], 200);
     }
 }
