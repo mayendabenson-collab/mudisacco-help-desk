@@ -1,13 +1,10 @@
 [variables]
 COMPOSER_ALLOW_SUPERUSER = "1"
 
-[phases.setup]
-nixPkgs = ["php83", "php83Extensions.pdo", "php83Extensions.pdo_pgsql", "php83Extensions.pgsql", "php83Extensions.intl", "php83Extensions.mbstring", "php83Extensions.ctype", "php83Extensions.iconv", "php83Extensions.tokenizer", "php83Extensions.xml", "php83Extensions.simplexml", "php83Extensions.xmlwriter", "php83Extensions.curl", "php83Extensions.openssl", "php83Extensions.zip", "php83Extensions.sodium", "composer"]
-
 [phases.install]
 cmds = [
     "[ -f .env ] || cp .env.example .env",
-    "COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction"
+    "composer install --no-dev --optimize-autoloader --no-interaction"
 ]
 
 [phases.build]
@@ -18,4 +15,4 @@ cmds = [
 ]
 
 [start]
-cmd = "[ -f vendor/autoload_runtime.php ] || (COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction || true); php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=prod || true; php bin/console app:seed-foundation --admin-email=\"${ADMIN_EMAIL:-mayendajabulani@gmail.com}\" --admin-password=\"${ADMIN_PASSWORD:-axxz1234}\" --no-interaction --env=prod 2>&1 | tail -20 || true; exec php -S 0.0.0.0:$PORT -t public public/router.php"
+cmd = "php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=prod || true; php bin/console app:seed-foundation --admin-email=\"${ADMIN_EMAIL:-mayendajabulani@gmail.com}\" --admin-password=\"${ADMIN_PASSWORD:-axxz1234}\" --no-interaction --env=prod 2>&1 | tail -20 || true; exec php -S 0.0.0.0:$PORT -t public public/router.php"
