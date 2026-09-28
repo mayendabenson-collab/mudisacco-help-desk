@@ -1,2 +1,16 @@
-[php]
-version = "8.3"
+[phases.setup]
+nixPkgs = ["php83", "php83Extensions.pdo", "php83Extensions.pdo_pgsql", "php83Extensions.pgsql", "php83Extensions.intl", "php83Extensions.mbstring", "php83Extensions.ctype", "php83Extensions.iconv", "php83Extensions.tokenizer", "php83Extensions.xml", "php83Extensions.simplexml", "php83Extensions.xmlwriter", "php83Extensions.curl", "php83Extensions.openssl", "php83Extensions.zip", "php83Extensions.sodium", "composer"]
+
+[phases.install]
+cmds = [
+    "composer install --no-dev --optimize-autoloader --no-interaction"
+]
+
+[phases.build]
+cmds = [
+    "mkdir -p var/cache var/log var/sessions/prod",
+    "php bin/console cache:warmup --env=prod"
+]
+
+[start]
+cmd = "php bin/console doctrine:migrations:migrate --no-interaction --env=prod && php -S 0.0.0.0:$PORT -t public public/router.php"
