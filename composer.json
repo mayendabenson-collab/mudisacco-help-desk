@@ -68,12 +68,8 @@
             "cache:clear": "symfony-cmd",
             "assets:install %PUBLIC_DIR%": "symfony-cmd"
         },
-        "post-install-cmd": [
-            "@auto-scripts"
-        ],
-        "post-update-cmd": [
-            "@auto-scripts"
-        ],
+        "post-install-cmd": [],
+        "post-update-cmd": [],
         "lint:yaml": "yaml-lint config --parse-tags",
         "lint:container": "php bin/console lint:container",
         "doctrine:validate": "php bin/console doctrine:schema:validate --skip-sync",

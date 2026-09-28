@@ -1,0 +1,8 @@
+#!/usr/bin/env php
+<?php
+
+// Fallback runner if symfony-cmd is invoked directly via shell
+$cmd = $argv[1] ?? '';
+if ($cmd !== '') {
+    passthru(PHP_BINARY . ' ' . __DIR__ . '/console ' . escapeshellarg($cmd));
+}
