@@ -1,10 +1,11 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "nixpacksConfigFile": "nixpacks.toml"
   },
   "deploy": {
-    "startCommand": "php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=prod || true; php bin/console app:seed-foundation --admin-email=\"${ADMIN_EMAIL:-mayendajabulani@gmail.com}\" --admin-password=\"${ADMIN_PASSWORD:-axxz1234}\" --no-interaction --env=prod 2>&1 | tail -20 || true; exec php -S 0.0.0.0:$PORT -t public public/router.php",
+    "startCommand": "[ -f vendor/autoload_runtime.php ] || (COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction || true); php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=prod || true; php bin/console app:seed-foundation --admin-email=\"${ADMIN_EMAIL:-mayendajabulani@gmail.com}\" --admin-password=\"${ADMIN_PASSWORD:-axxz1234}\" --no-interaction --env=prod 2>&1 | tail -20 || true; exec php -S 0.0.0.0:$PORT -t public public/router.php",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
