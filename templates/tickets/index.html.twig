@@ -4,7 +4,7 @@
 {% block page_heading %}Ticket Queue{% endblock %}
 
 {% block topbar_actions %}
-    {% if is_granted('ROLE_STAFF') or is_granted('ROLE_SUPERVISOR') or is_granted('ROLE_ADMIN') %}
+    {% if is_granted('ROLE_STAFF') or is_granted('ROLE_SUPERVISOR') or is_granted('ROLE_ADMIN') or is_granted('ROLE_MEMBER') %}
         {% include 'components/_button_link.html.twig' with { href: path('ticket_new'), label: '+ Create Ticket', variant: 'primary' } only %}
     {% endif %}
 {% endblock %}

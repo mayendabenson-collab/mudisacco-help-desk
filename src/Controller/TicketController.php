@@ -16,6 +16,7 @@ use App\Enum\TicketChannel;
 use App\Enum\TicketMessageVisibility;
 use App\Enum\TicketPriority;
 use App\Enum\TicketStatus;
+use App\Enum\UserType;
 use App\Security\SystemRole;
 use App\Security\TicketAccessVoter;
 use App\Service\Storage\TicketAttachmentService;
@@ -142,14 +143,19 @@ class TicketController extends AbstractController
     #[Route('/new', name: 'ticket_new', methods: ['GET', 'POST'])]
     public function new(Request $request, EntityManagerInterface $entityManager, TicketService $ticketService, TicketAttachmentService $attachmentService): Response
     {
-        if (!($this->isGranted(SystemRole::STAFF->value) || $this->isGranted(SystemRole::SUPERVISOR->value) || $this->isGranted(SystemRole::ADMIN->value))) {
-            throw $this->createAccessDeniedException('You must be staff to create tickets.');
-        }
         $user = $this->requireUser();
 
-        // Check if user has permission to create tickets
-        if (!$user->hasPermission(StaffPermission::CREATE_TICKETS)) {
-            throw $this->createAccessDeniedException('You do not have permission to create tickets.');
+        $isStaff = $this->isGranted(SystemRole::STAFF->value) || $this->isGranted(SystemRole::SUPERVISOR->value) || $this->isGranted(SystemRole::ADMIN->value);
+        $isMember = in_array(SystemRole::MEMBER->value, $user->getRoles(), true) || $user->getUserType() === UserType::MEMBER;
+
+        if (!$isStaff && !$isMember) {
+            $this->addFlash('error', 'You must sign in to create tickets.');
+            return $this->redirectToRoute('app_login');
+        }
+
+        if ($isStaff && !$isMember && !$user->hasPermission(StaffPermission::CREATE_TICKETS)) {
+            $this->addFlash('error', 'You do not have permission to create tickets on behalf of members.');
+            return $this->redirectToRoute('ticket_index');
         }
 
         $categories = $entityManager->getRepository(Category::class)->findBy(['active' => true], ['name' => 'ASC']);
@@ -160,9 +166,18 @@ class TicketController extends AbstractController
 
         $errors = [];
         $selectedMember = null;
-        $memberId = (string) $request->request->get('member_id', $request->query->get('member_id', ''));
-        if ($memberId !== '') {
-            $selectedMember = $entityManager->getRepository(Member::class)->find($memberId);
+
+        if ($isMember) {
+            $selectedMember = $entityManager->getRepository(Member::class)->findOneBy(['user' => $user]);
+            if (!$selectedMember instanceof Member) {
+                $this->addFlash('error', 'Your user account is not linked to a SACCO member record. Please contact an administrator.');
+                return $this->redirectToRoute('ticket_index');
+            }
+        } else {
+            $memberId = (string) $request->request->get('member_id', $request->query->get('member_id', ''));
+            if ($memberId !== '') {
+                $selectedMember = $entityManager->getRepository(Member::class)->find($memberId);
+            }
         }
 
         if ($request->isMethod('POST')) {
@@ -178,12 +193,6 @@ class TicketController extends AbstractController
             $description = trim((string) $request->request->get('description'));
             $categoryId = (string) $request->request->get('category');
             $category = $categoryId !== '' ? $entityManager->getRepository(Category::class)->find($categoryId) : null;
-            $branchId = (string) $request->request->get('branch');
-            $branch = $branchId !== '' ? $entityManager->getRepository(Branch::class)->find($branchId) : null;
-            $channelVal = (string) $request->request->get('channel');
-            $channel = TicketChannel::tryFrom($channelVal) ?? TicketChannel::PHONE;
-            $priorityVal = (string) $request->request->get('priority');
-            $priority = TicketPriority::tryFrom($priorityVal) ?? ($category?->getDefaultPriority() ?? TicketPriority::MEDIUM);
             $attachment = $request->files->get('attachment');
 
             if (!$category instanceof Category || !$category->isActive()) {
@@ -203,23 +212,40 @@ class TicketController extends AbstractController
             }
 
             if ($errors === [] && $selectedMember instanceof Member && $category instanceof Category) {
-                $ticket = $ticketService->createByStaffForMember(
-                    $user,
-                    $selectedMember,
-                    $category,
-                    $subject,
-                    $description,
-                    $priority,
-                    $channel,
-                    $branch,
-                    $request->getClientIp()
-                );
+                if ($isMember) {
+                    $ticket = $ticketService->createForMember(
+                        $user,
+                        $category,
+                        $subject,
+                        $description,
+                        $request->getClientIp()
+                    );
+                } else {
+                    $branchId = (string) $request->request->get('branch');
+                    $branch = $branchId !== '' ? $entityManager->getRepository(Branch::class)->find($branchId) : null;
+                    $channelVal = (string) $request->request->get('channel');
+                    $channel = TicketChannel::tryFrom($channelVal) ?? TicketChannel::PHONE;
+                    $priorityVal = (string) $request->request->get('priority');
+                    $priority = TicketPriority::tryFrom($priorityVal) ?? ($category->getDefaultPriority() ?? TicketPriority::MEDIUM);
+
+                    $ticket = $ticketService->createByStaffForMember(
+                        $user,
+                        $selectedMember,
+                        $category,
+                        $subject,
+                        $description,
+                        $priority,
+                        $channel,
+                        $branch,
+                        $request->getClientIp()
+                    );
+                }
 
                 if ($attachment instanceof UploadedFile && $attachment->getError() !== UPLOAD_ERR_NO_FILE) {
                     $attachmentService->store($ticket, null, $user, $attachment, $request->getClientIp());
                 }
 
-                $this->addFlash('success', 'Customer Ticket ' . $ticket->getReference() . ' was successfully created.');
+                $this->addFlash('success', 'Ticket ' . $ticket->getReference() . ' was successfully created.');
 
                 return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()->toRfc4122()]);
             }
@@ -232,6 +258,7 @@ class TicketController extends AbstractController
             'channels' => $channels,
             'priorities' => $priorities,
             'selectedMember' => $selectedMember,
+            'isMember' => $isMember,
             'errors' => $errors,
         ]);
     }

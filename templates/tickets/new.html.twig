@@ -1,7 +1,7 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Create Customer Ticket | {{ app_name }}{% endblock %}
-{% block page_heading %}Customer Service Desk — Create Ticket{% endblock %}
+{% block title %}{% if isMember|default(false) %}Create Support Ticket{% else %}Create Customer Ticket{% endif %} | {{ app_name }}{% endblock %}
+{% block page_heading %}{% if isMember|default(false) %}Submit Support Ticket{% else %}Customer Service Desk — Create Ticket{% endif %}{% endblock %}
 
 {% block topbar_actions %}
     {% include 'components/_button_link.html.twig' with { href: path('ticket_index'), label: 'Back to queue', variant: 'secondary' } only %}
@@ -15,56 +15,62 @@
             </div>
         {% endif %}
 
-        <!-- STEP 1: CUSTOMER IDENTIFICATION -->
-        <div class="panel-section" style="margin-bottom: var(--space-5); padding: var(--space-4); background: #ffffff; border: 1px solid var(--color-line); border-radius: var(--radius-md);">
-            <div class="section-header" style="margin-bottom: var(--space-3);">
-                <div>
-                    <p class="section-kicker" style="margin: 0; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--color-accent);">Step 1: Customer Identification</p>
-                    <h2 style="margin: var(--space-1) 0 0 0; font-size: 18px;">Select Existing Mudi SACCO Member</h2>
-                </div>
+        {% if isMember|default(false) %}
+            <div style="margin-bottom: var(--space-4); padding: var(--space-3); background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md); font-size: 14px; color: #166534;">
+                Submitting ticket for: <strong>{{ selectedMember ? selectedMember.displayName : '' }}</strong> (Member #{{ selectedMember ? selectedMember.memberNumber : '' }})
             </div>
-
-            <!-- Customer Search Field -->
-            <div id="member-search-box" style="{% if selectedMember %}display: none;{% endif %}">
-                <p class="muted" style="margin: 0 0 var(--space-2) 0; font-size: 13px;">
-                    Search member by Member Number, Full Name, Phone Number, or Email address:
-                </p>
-                <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-3);">
-                    <input type="text" id="member-search-input" class="input" placeholder="e.g. MUDI-000123, Daniel Mwangi, +254..." style="flex: 1;" autocomplete="off">
-                    <button type="button" id="member-search-btn" class="button button--secondary">Search Customer</button>
-                </div>
-
-                <!-- Live Results Container -->
-                <div id="member-search-results" style="display: none; border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-page);">
-                    <p style="margin: 0 0 var(--space-2) 0; font-size: 12px; font-weight: 600; color: var(--color-muted);">Search Results:</p>
-                    <div id="member-results-list" style="display: flex; flex-direction: column; gap: var(--space-2);"></div>
-                </div>
-
-                <!-- Not Found Notice -->
-                <div id="member-not-found" style="display: none; margin-top: var(--space-2);" class="alert alert--warning">
-                    Member not found. Please verify the member details or contact an administrator.
-                </div>
-            </div>
-
-            <!-- Selected Member Card -->
-            <div id="selected-member-card" style="{% if not selectedMember %}display: none;{% endif %} padding: var(--space-3); background: #eaf5f0; border: 1px solid #b7dfd0; border-radius: var(--radius-md);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3);">
+        {% else %}
+            <!-- STEP 1: CUSTOMER IDENTIFICATION -->
+            <div class="panel-section" style="margin-bottom: var(--space-5); padding: var(--space-4); background: #ffffff; border: 1px solid var(--color-line); border-radius: var(--radius-md);">
+                <div class="section-header" style="margin-bottom: var(--space-3);">
                     <div>
-                        <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1);">
-                            <span class="badge" style="background: var(--color-accent); color: #fff; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-sm); font-size: 11px;">SELECTED CUSTOMER</span>
-                            <strong id="selected-member-name" style="font-size: 16px;">{{ selectedMember ? selectedMember.displayName : '' }}</strong>
-                        </div>
-                        <div style="font-size: 13px; color: var(--color-ink); display: flex; flex-wrap: wrap; gap: var(--space-3);">
-                            <span><strong>Member #:</strong> <span id="selected-member-number">{{ selectedMember ? selectedMember.memberNumber : '' }}</span></span>
-                            <span><strong>Phone:</strong> <span id="selected-member-phone">{{ selectedMember ? (selectedMember.primaryPhone ?? 'N/A') : '' }}</span></span>
-                            <span><strong>Email:</strong> <span id="selected-member-email">{{ selectedMember ? (selectedMember.email ?? 'N/A') : '' }}</span></span>
-                            <span><strong>Home Branch:</strong> <span id="selected-member-branch">{{ selectedMember and selectedMember.branch ? selectedMember.branch.name : 'Not set' }}</span></span>
-                        </div>
+                        <p class="section-kicker" style="margin: 0; font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--color-accent);">Step 1: Customer Identification</p>
+                        <h2 style="margin: var(--space-1) 0 0 0; font-size: 18px;">Select Existing Mudi SACCO Member</h2>
                     </div>
-                    <button type="button" id="change-member-btn" class="button button--secondary" style="font-size: 12px; padding: 4px 10px;">Change Member</button>
+                </div>
+
+                <!-- Customer Search Field -->
+                <div id="member-search-box" style="{% if selectedMember %}display: none;{% endif %}">
+                    <p class="muted" style="margin: 0 0 var(--space-2) 0; font-size: 13px;">
+                        Search member by Member Number, Full Name, Phone Number, or Email address:
+                    </p>
+                    <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-3);">
+                        <input type="text" id="member-search-input" class="input" placeholder="e.g. MUDI-000123, Daniel Mwangi, +254..." style="flex: 1;" autocomplete="off">
+                        <button type="button" id="member-search-btn" class="button button--secondary">Search Customer</button>
+                    </div>
+
+                    <!-- Live Results Container -->
+                    <div id="member-search-results" style="display: none; border: 1px solid var(--color-line); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-page);">
+                        <p style="margin: 0 0 var(--space-2) 0; font-size: 12px; font-weight: 600; color: var(--color-muted);">Search Results:</p>
+                        <div id="member-results-list" style="display: flex; flex-direction: column; gap: var(--space-2);"></div>
+                    </div>
+
+                    <!-- Not Found Notice -->
+                    <div id="member-not-found" style="display: none; margin-top: var(--space-2);" class="alert alert--warning">
+                        Member not found. Please verify the member details or contact an administrator.
+                    </div>
+                </div>
+
+                <!-- Selected Member Card -->
+                <div id="selected-member-card" style="{% if not selectedMember %}display: none;{% endif %} padding: var(--space-3); background: #eaf5f0; border: 1px solid #b7dfd0; border-radius: var(--radius-md);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3);">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1);">
+                                <span class="badge" style="background: var(--color-accent); color: #fff; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-sm); font-size: 11px;">SELECTED CUSTOMER</span>
+                                <strong id="selected-member-name" style="font-size: 16px;">{{ selectedMember ? selectedMember.displayName : '' }}</strong>
+                            </div>
+                            <div style="font-size: 13px; color: var(--color-ink); display: flex; flex-wrap: wrap; gap: var(--space-3);">
+                                <span><strong>Member #:</strong> <span id="selected-member-number">{{ selectedMember ? selectedMember.memberNumber : '' }}</span></span>
+                                <span><strong>Phone:</strong> <span id="selected-member-phone">{{ selectedMember ? (selectedMember.primaryPhone ?? 'N/A') : '' }}</span></span>
+                                <span><strong>Email:</strong> <span id="selected-member-email">{{ selectedMember ? (selectedMember.email ?? 'N/A') : '' }}</span></span>
+                                <span><strong>Home Branch:</strong> <span id="selected-member-branch">{{ selectedMember and selectedMember.branch ? selectedMember.branch.name : 'Not set' }}</span></span>
+                            </div>
+                        </div>
+                        <button type="button" id="change-member-btn" class="button button--secondary" style="font-size: 12px; padding: 4px 10px;">Change Member</button>
+                    </div>
                 </div>
             </div>
-        </div>
+        {% endif %}
 
         <!-- STEP 2 & 3: TICKET INTAKE FORM -->
         <form class="stack-form" method="post" action="{{ path('ticket_new') }}" enctype="multipart/form-data" id="ticket-create-form">
@@ -73,15 +79,15 @@
 
             {# For phone-first workflow we use a hidden branch and channel field; branch will be set from selected member when available #}
             <input type="hidden" name="branch" id="ticket-branch" value="{{ selectedMember ? selectedMember.branch ? selectedMember.branch.id : '' : '' }}">
-            <input type="hidden" name="channel" id="ticket-channel" value="{{ app.request.request.get('channel', 'PHONE') }}">
+            <input type="hidden" name="channel" id="ticket-channel" value="{{ app.request.request.get('channel', isMember|default(false) ? 'PORTAL' : 'PHONE') }}">
 
             <label class="form-field">
                 <span>Category <small style="color: var(--color-danger);">*</small></span>
                 <select class="input" name="category" id="ticket-category" required>
                     <option value="">Select category</option>
                     {% for category in categories %}
-                        <option value="{{ category.id }}" data-priority="{{ category.defaultPriority.value }}" {% if app.request.request.get('category') == category.id %} selected{% endif %}>
-                            {{ category.name }} · {{ category.department.name }}
+                        <option value="{{ category.id }}" data-priority="{{ category.defaultPriority.value }}" data-department="{{ category.department ? category.department.name : 'General' }}" {% if app.request.request.get('category') == category.id %} selected{% endif %}>
+                            {{ category.name }} · {{ category.department ? category.department.name : 'General' }}
                         </option>
                     {% endfor %}
                 </select>

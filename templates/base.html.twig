@@ -25,7 +25,7 @@
             <nav class="nav-list">
                 {% if app.user %}
                     {# Create Ticket — prominent top item #}
-                    {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_SUPERVISOR') or app.user.hasPermission('create_tickets') %}
+                    {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_SUPERVISOR') or is_granted('ROLE_MEMBER') or app.user.hasPermission('create_tickets') %}
                         <a class="nav-item nav-item--create{% if app.request.attributes.get('_route') == 'ticket_new' %} is-active{% endif %}"
                            href="{{ path('ticket_new') }}">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
