@@ -111,6 +111,17 @@ img { display: block; max-width: 100%; }
     border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
+.brand-logo {
+    width: 34px;
+    height: 34px;
+    max-width: 34px;
+    max-height: 34px;
+    object-fit: contain;
+    flex-shrink: 0;
+    display: block;
+    background: transparent;
+}
+
 .brand-mark {
     display: grid;
     place-items: center;

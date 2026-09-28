@@ -11,7 +11,8 @@
         <aside class="sidebar" aria-label="Primary navigation">
             <a class="brand" href="{{ path('app_dashboard') }}">
                 {% if app_logo_path is defined and app_logo_path %}
-                    <img src="{{ asset(app_logo_path) }}" alt="{{ app_short_name|default(app_name) }} logo" class="brand-logo">
+                    {% set logoSrc = app_logo_path matches '/logonzeru/' ? 'assets/styles/logonzeru-icon.png' : app_logo_path %}
+                    <img src="{{ asset(logoSrc) }}" alt="{{ app_short_name|default(app_name) }} logo" class="brand-logo">
                 {% else %}
                     <span class="brand-mark">{{ app_short_name|default('NZ')|slice(0, 1)|upper }}</span>
                 {% endif %}

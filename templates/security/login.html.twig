@@ -63,20 +63,18 @@
         }
 
         .logo-wrap {
-            width: 80px;
-            height: 80px;
-            border-radius: 20px;
-            background: var(--accent);
+            width: 72px;
+            height: 72px;
+            background: transparent;
             display: grid;
             place-items: center;
-            box-shadow: 0 8px 24px var(--accent-glow);
-            overflow: hidden;
         }
 
         .logo-wrap img {
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 10px rgba(0,0,0,0.06));
         }
 
         .logo-initials {
@@ -239,7 +237,8 @@
     <div class="brand-center">
         <div class="logo-wrap">
             {% if app_logo_path is defined and app_logo_path %}
-                <img src="{{ asset(app_logo_path) }}" alt="{{ app_short_name|default('NZERU') }} logo">
+                {% set loginLogo = app_logo_path matches '/logonzeru/' ? 'assets/styles/logonzeru.png' : app_logo_path %}
+                <img src="{{ asset(loginLogo) }}" alt="{{ app_short_name|default('NZERU') }} logo">
             {% else %}
                 <span class="logo-initials">{{ app_short_name|default('NZ')|slice(0,2)|upper }}</span>
             {% endif %}
