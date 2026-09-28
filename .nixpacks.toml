@@ -6,6 +6,7 @@ nixPkgs = ["php83", "php83Extensions.pdo", "php83Extensions.pdo_pgsql", "php83Ex
 
 [phases.install]
 cmds = [
+    "[ -f .env ] || cp .env.example .env",
     "COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction --no-scripts"
 ]
 
