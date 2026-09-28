@@ -9,7 +9,7 @@ framework:
     session:
         name: MUDI_SUPPORT_SESSID
         handler_id: session.handler.native_file
-        save_path: '%kernel.project_dir%/var/sessions/%kernel.environment%'
+        save_path: null
         cookie_secure: auto
         cookie_samesite: lax
 
