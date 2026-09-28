@@ -129,6 +129,8 @@ class RegistrationController extends AbstractController
                 $member->setUser($user);
 
                 $entityManager->persist($user);
+                $entityManager->flush();
+
                 $auditLogger->record($user, 'member.registered', 'member', $member->getId(), [
                     'member_number' => $member->getMemberNumber(),
                     'email' => $email,

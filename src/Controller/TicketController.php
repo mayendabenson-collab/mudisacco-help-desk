@@ -531,9 +531,9 @@ class TicketController extends AbstractController
             );
 
             if ($canSeeDept) {
-                $qb->andWhere('(t.assignedTo = :user OR t.createdBy = :user OR d.code = :departmentCode)')
+                $qb->andWhere('(t.assignedTo = :user OR t.createdBy = :user OR t.department = :department)')
                     ->setParameter('user', $user)
-                    ->setParameter('departmentCode', $department->getCode());
+                    ->setParameter('department', $department);
             } else {
                 // Show only tickets explicitly assigned to or created by this staff member
                 $qb->andWhere('(t.assignedTo = :user OR t.createdBy = :user)')
@@ -543,8 +543,14 @@ class TicketController extends AbstractController
             return;
         }
 
-        $qb->join('m.user', 'memberUser')
-            ->andWhere('memberUser = :user')
+        $aliases = $qb->getAllAliases();
+        if (!in_array('m', $aliases, true)) {
+            $qb->join('t.member', 'm');
+        }
+        if (!in_array('memberUser', $aliases, true)) {
+            $qb->join('m.user', 'memberUser');
+        }
+        $qb->andWhere('memberUser = :user')
             ->setParameter('user', $user);
     }
 
@@ -552,7 +558,7 @@ class TicketController extends AbstractController
     {
         $q = trim((string) $request->query->get('q'));
         if ($q !== '') {
-            $qb->andWhere('LOWER(t.reference) LIKE :q OR LOWER(t.subject) LIKE :q OR LOWER(m.memberNumber) LIKE :q OR LOWER(m.displayName) LIKE :q OR LOWER(COALESCE(m.primaryPhone, \'\')) LIKE :q')
+            $qb->andWhere('(LOWER(t.reference) LIKE :q OR LOWER(t.subject) LIKE :q OR LOWER(m.memberNumber) LIKE :q OR LOWER(m.displayName) LIKE :q OR (m.primaryPhone IS NOT NULL AND LOWER(m.primaryPhone) LIKE :q))')
                 ->setParameter('q', '%' . strtolower($q) . '%');
         }
 
