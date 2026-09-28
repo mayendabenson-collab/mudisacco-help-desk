@@ -31,6 +31,23 @@ class ApiExceptionSubscriber implements EventSubscriberInterface
         }
 
         $exception = $event->getThrowable();
+
+        if ($request->getPathInfo() === '/api/health' || $request->getPathInfo() === '/health') {
+            $this->logger->warning('Health check degraded.', [
+                'exception' => $exception->getMessage(),
+            ]);
+            $event->setResponse(new JsonResponse([
+                'service' => 'mudi-sacco-support',
+                'status' => 'degraded',
+                'checks' => [
+                    'database' => 'unavailable',
+                    'database_error' => $exception->getMessage(),
+                ],
+                'timestamp' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            ], 200));
+            return;
+        }
+
         $statusCode = $exception instanceof HttpExceptionInterface ? $exception->getStatusCode() : 500;
 
         if ($statusCode >= 500) {
