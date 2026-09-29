@@ -16,7 +16,7 @@ Built with PHP / Symfony, Doctrine ORM, and Bootstrap/Twig.
 1. Create a **PostgreSQL** database service on Railway.
 2. Connect this repository to a new Railway web service.
 3. Configure the environment variables in Railway according to `.env.example`:
-   - `DATABASE_URL`: `${{Postgres.DATABASE_URL}}`
+   - `DATABASE_URL`: `${{Postgres.DATABASE_URL}}` (add this reference in the web service; the app intentionally does not copy local `.env` defaults into production)
    - `APP_ENV`: `prod`
    - `APP_SECRET`: *(generate a 32-character hex secret)*
    - `MESSENGER_TRANSPORT_DSN`: `sync://`
@@ -24,6 +24,7 @@ Built with PHP / Symfony, Doctrine ORM, and Bootstrap/Twig.
    - `MAILER_FROM_ADDRESS`: `noreply@your-domain.com`
    - `MAILER_FROM_NAME`: `NZERU Help Desk`
    - `ADMIN_EMAIL`: `admin@your-domain.com`
+   - `ADMIN_PASSWORD`: *(set a strong password; startup will stop if required database or administrator variables are missing)*
 4. The application automatically runs database migrations on startup via `railway.json`.
 5. Seed initial data via the Railway CLI or dashboard console:
    ```bash

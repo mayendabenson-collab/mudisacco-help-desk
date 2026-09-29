@@ -8,23 +8,23 @@ use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
+use Psr\Log\LoggerInterface;
 
 class HealthController extends AbstractController
 {
     #[Route('/health', name: 'health', methods: ['GET'])]
     #[Route('/health/', name: 'health_slash', methods: ['GET'])]
     #[Route('/api/health', name: 'api_health', methods: ['GET'])]
-    public function __invoke(ManagerRegistry $doctrine): JsonResponse
+    public function __invoke(ManagerRegistry $doctrine, LoggerInterface $logger): JsonResponse
     {
         $database = 'ok';
-        $dbError = null;
 
         try {
             $connection = $doctrine->getConnection();
             $connection->executeQuery('SELECT 1')->fetchOne();
         } catch (\Throwable $e) {
             $database = 'unavailable';
-            $dbError = $e->getMessage();
+            $logger->error('Health check database connection failed.', ['exception' => $e]);
         }
 
         return $this->json([
@@ -32,7 +32,6 @@ class HealthController extends AbstractController
             'status' => $database === 'ok' ? 'ok' : 'degraded',
             'checks' => [
                 'database' => $database,
-                'database_error' => $dbError,
             ],
             'timestamp' => (new \DateTimeImmutable())->format(DATE_ATOM),
         ], 200);

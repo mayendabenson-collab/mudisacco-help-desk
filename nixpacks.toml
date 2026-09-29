@@ -1,5 +1,17 @@
 [variables]
 COMPOSER_ALLOW_SUPERUSER = "1"
+APP_ENV = "prod"
+APP_NAME = "NZERU Help Desk"
+APP_SHORT_NAME = "NZERU"
+APP_TAGLINE = "Help Desk"
+APP_LOGO_PATH = "assets/styles/logonzeru.png"
+MESSENGER_TRANSPORT_DSN = "sync://"
+LOCK_DSN = "flock"
+MAILER_DSN = "null://null"
+MAILER_FROM_ADDRESS = "noreply@example.com"
+MAILER_FROM_NAME = "NZERU Help Desk"
+TRUSTED_PROXIES = "127.0.0.1,REMOTE_ADDR,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+TRUSTED_HOSTS = "^.*$"
 
 [phases.install]
 cmds = [
@@ -11,8 +23,9 @@ cmds = [
 cmds = [
     "mkdir -p var/cache var/log var/sessions/prod",
     "php bin/console assets:install public --no-interaction || true",
-    "php bin/console cache:warmup --env=prod --no-interaction || true"
+    "php bin/console cache:warmup --env=prod --no-interaction || true",
+    "rm -f .env"
 ]
 
 [start]
-cmd = "php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=prod || true; php bin/console app:seed-foundation --admin-email=\"${ADMIN_EMAIL:-mayendajabulani@gmail.com}\" --admin-password=\"${ADMIN_PASSWORD:-axxz1234}\" --no-interaction --env=prod 2>&1 | tail -20 || true; exec php -S 0.0.0.0:$PORT -t public public/router.php"
+cmd = "set -eu; : \"${DATABASE_URL:?Set DATABASE_URL to the Railway PostgreSQL service URL}\"; : \"${APP_SECRET:?Set APP_SECRET in Railway variables}\"; : \"${ADMIN_EMAIL:?Set ADMIN_EMAIL in Railway variables}\"; : \"${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in Railway variables}\"; php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=prod; php bin/console app:seed-foundation --admin-email=\"${ADMIN_EMAIL}\" --admin-password=\"${ADMIN_PASSWORD}\" --no-interaction --env=prod; exec php -S 0.0.0.0:${PORT:-8080} -t public public/router.php"
