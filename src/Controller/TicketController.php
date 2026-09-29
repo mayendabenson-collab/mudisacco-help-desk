@@ -132,7 +132,7 @@ class TicketController extends AbstractController
                 'phone' => $m->getPrimaryPhone() ?? 'N/A',
                 'email' => $m->getEmail() ?? 'N/A',
                 'branch' => $m->getBranch()?->getName() ?? 'Not specified',
-                'branchId' => $m->getBranch()?->getId()->toRfc4122(),
+                'branchId' => $m->getBranch()?->getId()?->toRfc4122(),
                 'status' => $m->getStatus()->value,
             ];
         }
@@ -518,6 +518,27 @@ class TicketController extends AbstractController
         }
 
         return $user;
+    }
+
+    /**
+     * Returns true when the authenticated user is the member who owns the ticket.
+     * A member user is linked to a Member record; we compare the member's linked user
+     * to the currently authenticated user.
+     */
+    private function isMemberOwner(Ticket $ticket, User $user): bool
+    {
+        $memberUser = $ticket->getMember()->getUser();
+
+        return $memberUser instanceof User && $memberUser->getId()->equals($user->getId());
+    }
+
+    /**
+     * Returns true when the given staff user belongs to the same department as the ticket.
+     */
+    private function sameDepartment(User $user, Ticket $ticket): bool
+    {
+        return $user->getDepartment() !== null
+            && $ticket->getDepartment()->getId()->equals($user->getDepartment()->getId());
     }
 
     private function scopeTickets(\Doctrine\ORM\QueryBuilder $qb, User $user): void
