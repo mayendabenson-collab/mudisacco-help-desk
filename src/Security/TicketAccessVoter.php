@@ -6,6 +6,7 @@ namespace App\Security;
 
 use App\Entity\Ticket;
 use App\Entity\User;
+use App\Enum\StaffPermission;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
@@ -59,7 +60,8 @@ class TicketAccessVoter extends Voter
         return match ($attribute) {
             self::VIEW => true,
             self::REPLY => $this->hasPermission($user, Permission::HANDLE_TICKETS),
-            self::ASSIGN => $this->hasPermission($user, Permission::ASSIGN_TICKETS),
+            self::ASSIGN => $this->hasPermission($user, Permission::ASSIGN_TICKETS)
+                || $user->hasPermission(StaffPermission::RESOLVE_TICKETS),
             self::ESCALATE => $this->hasPermission($user, Permission::ESCALATE_TICKETS),
             default => false,
         };
@@ -70,7 +72,9 @@ class TicketAccessVoter extends Voter
         return match ($attribute) {
             self::VIEW => $this->sameDepartment($user, $ticket) || $this->isAssignedTo($user, $ticket) || $this->isAssignedTeamMember($user, $ticket) || $this->isCreatorStaff($user, $ticket),
             self::REPLY => ($this->isAssignedTo($user, $ticket) || $this->isAssignedTeamMember($user, $ticket) || $this->isCreatorStaff($user, $ticket)) && $this->hasPermission($user, Permission::HANDLE_TICKETS),
-            self::ASSIGN => $this->canStaffAccept($user, $ticket) && $this->hasPermission($user, Permission::ASSIGN_TICKETS),
+            self::ASSIGN => $this->canStaffAccept($user, $ticket)
+                && ($this->hasPermission($user, Permission::ASSIGN_TICKETS)
+                    || $user->hasPermission(StaffPermission::RESOLVE_TICKETS)),
             self::ESCALATE => ($this->isAssignedTo($user, $ticket) || $this->isAssignedTeamMember($user, $ticket) || $this->isCreatorStaff($user, $ticket)) && $this->hasPermission($user, Permission::ESCALATE_TICKETS),
             default => false,
         };
@@ -130,6 +134,10 @@ class TicketAccessVoter extends Voter
 
     private function hasPermission(User $user, Permission $expectedPermission): bool
     {
+        if ($expectedPermission === Permission::HANDLE_TICKETS && $user->hasPermission(StaffPermission::RESOLVE_TICKETS)) {
+            return true;
+        }
+
         foreach ($user->getRoleEntities() as $role) {
             foreach ($role->getPermissions() as $permission) {
                 if ($permission->getCode() === $expectedPermission->value) {

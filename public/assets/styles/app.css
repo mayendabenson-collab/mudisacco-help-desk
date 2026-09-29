@@ -764,6 +764,16 @@ h3 {
     align-items: flex-start;
 }
 
+.ticket-workflow__actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: var(--sp-4);
+    align-items: start;
+}
+
+.ticket-workflow__actions > form { min-width: 0; }
+.ticket-workflow__actions .resolved-panel { min-width: 0; }
+
 .ticket-description {
     margin-bottom: 0;
     color: var(--color-ink-2);

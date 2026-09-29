@@ -29,6 +29,82 @@
                 <p class="ticket-description">{{ ticket.description|nl2br }}</p>
             </section>
 
+            {% set canAcceptTicket = ticket.status.value in ['OPEN', 'REOPENED'] and is_granted('ticket.assign', ticket) %}
+            {% set canResolveTicket = ticket.status.value == 'IN_PROGRESS' and is_granted('ticket.reply', ticket) and app.user.hasPermission('resolve_tickets') %}
+            {% set canCloseCurrentTicket = ticket.status.value == 'RESOLVED' and canCloseTicket %}
+            {% set canReopenTicket = ticket.status.value in ['RESOLVED', 'CLOSED'] and is_granted('ticket.assign', ticket) %}
+            {% if canAcceptTicket or canResolveTicket or canCloseCurrentTicket or canReopenTicket or ticket.status.value in ['RESOLVED', 'CLOSED'] %}
+                <section id="ticket-workflow" class="page-section panel-section ticket-workflow">
+                    <div class="section-header">
+                        <div>
+                            <p class="section-kicker">Ticket workflow</p>
+                            <h2>{{ ticket.status.label }}</h2>
+                        </div>
+                    </div>
+
+                    <div class="ticket-workflow__actions">
+                        {% if ticket.status.value in ['RESOLVED', 'CLOSED'] %}
+                            <div class="resolved-panel">
+                                <div class="resolved-panel__icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                                    </svg>
+                                </div>
+                                <div class="resolved-panel__body">
+                                    <strong>{{ ticket.status.value == 'CLOSED' ? 'Ticket Closed' : 'Ticket Resolved' }}</strong>
+                                    {% set resolvedEntry = ticket.statusHistory|filter(h => h.toStatus.value in ['RESOLVED','CLOSED'])|last %}
+                                    {% if resolvedEntry %}
+                                        <p>{% if resolvedEntry.changedBy %}By <strong>{{ resolvedEntry.changedBy.fullName }}</strong> · {% endif %}{{ resolvedEntry.createdAt|date('M j, Y H:i') }}</p>
+                                        {% if resolvedEntry.reason %}<p class="resolved-panel__meta">{{ resolvedEntry.reason }}</p>{% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        {% if canAcceptTicket %}
+                            <form method="post" action="{{ path('ticket_accept', { id: ticket.id }) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('ticket_accept_' ~ ticket.id) }}">
+                                <button class="button button--primary" type="submit">Accept ticket</button>
+                            </form>
+                        {% endif %}
+
+                        {% if canResolveTicket %}
+                            <form class="stack-form compact-form" method="post" action="{{ path('ticket_resolve', { id: ticket.id }) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('ticket_resolve_' ~ ticket.id) }}">
+                                <label class="form-field">
+                                    <span>Resolution summary *</span>
+                                    <textarea class="input textarea" name="resolution" rows="3" required minlength="10" placeholder="Describe what was done to resolve this ticket..."></textarea>
+                                </label>
+                                <button class="button button--primary" type="submit">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                                        <polyline points="20 6 9 17 4 12"/>
+                                    </svg>
+                                    Mark as Resolved
+                                </button>
+                            </form>
+                        {% endif %}
+
+                        {% if canCloseCurrentTicket %}
+                            <form method="post" action="{{ path('ticket_close', { id: ticket.id }) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('ticket_close_' ~ ticket.id) }}">
+                                <button class="button button--secondary" type="submit">Close ticket</button>
+                            </form>
+                        {% endif %}
+
+                        {% if canReopenTicket %}
+                            <form class="stack-form compact-form" method="post" action="{{ path('ticket_reopen', { id: ticket.id }) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('ticket_reopen_' ~ ticket.id) }}">
+                                <label class="form-field">
+                                    <span>Reason for reopening</span>
+                                    <textarea class="input textarea" name="reason" rows="2" minlength="5" placeholder="Explain why this ticket is being reopened..."></textarea>
+                                </label>
+                                <button class="button button--secondary" type="submit">Reopen ticket</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </section>
+            {% endif %}
+
             {# Ticket Information, Assignment & SLA #}
             <section class="page-section panel-section">
                 <div class="section-grid">
@@ -52,12 +128,6 @@
                             <div><dt>Logged by</dt><dd>{{ ticket.createdBy ? ticket.createdBy.fullName : 'System' }}</dd></div>
                         </dl>
 
-                        {% if is_granted('ticket.assign', ticket) and ticket.status.value in ['OPEN', 'REOPENED'] %}
-                            <form method="post" action="{{ path('ticket_accept', { id: ticket.id }) }}">
-                                <input type="hidden" name="_token" value="{{ csrf_token('ticket_accept_' ~ ticket.id) }}">
-                                <button class="button button--primary" type="submit">Accept ticket</button>
-                            </form>
-                        {% endif %}
                     </div>
 
                     <div>
@@ -178,60 +248,6 @@
 
                 <div class="action-stack">
 
-                    {# ── Resolved / Closed confirmation panel ─ #}
-                    {% if ticket.status.value in ['RESOLVED', 'CLOSED'] %}
-                        <div class="resolved-panel">
-                            <div class="resolved-panel__icon">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-                                </svg>
-                            </div>
-                            <div class="resolved-panel__body">
-                                <strong>{{ ticket.status.value == 'CLOSED' ? 'Ticket Closed' : 'Ticket Resolved' }}</strong>
-                                {% set resolvedEntry = ticket.statusHistory|filter(h => h.toStatus.value in ['RESOLVED','CLOSED'])|last %}
-                                {% if resolvedEntry %}
-                                    <p>
-                                        {% if resolvedEntry.changedBy %}By <strong>{{ resolvedEntry.changedBy.fullName }}</strong> · {% endif %}
-                                        {{ resolvedEntry.createdAt|date('M j, Y H:i') }}
-                                    </p>
-                                    {% if resolvedEntry.reason %}
-                                        <p class="resolved-panel__meta">{{ resolvedEntry.reason }}</p>
-                                    {% endif %}
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        {# Close ticket action (RESOLVED → CLOSED) #}
-                        {% if ticket.status.value == 'RESOLVED' and app.user.hasPermission('close_tickets') %}
-                            <form method="post" action="{{ path('ticket_close', { id: ticket.id }) }}">
-                                <input type="hidden" name="_token" value="{{ csrf_token('ticket_close_' ~ ticket.id) }}">
-                                <button class="button button--secondary button--full" type="submit">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                                        <polyline points="20 6 9 17 4 12"/>
-                                    </svg>
-                                    Close ticket
-                                </button>
-                            </form>
-                        {% endif %}
-
-                        {# Reopen action (RESOLVED/CLOSED → REOPENED) #}
-                        {% if is_granted('ticket.assign', ticket) %}
-                            <form class="stack-form compact-form" method="post" action="{{ path('ticket_reopen', { id: ticket.id }) }}">
-                                <input type="hidden" name="_token" value="{{ csrf_token('ticket_reopen_' ~ ticket.id) }}">
-                                <label class="form-field">
-                                    <span>Reason for reopening</span>
-                                    <textarea class="input textarea" name="reason" rows="2" placeholder="Explain why this ticket is being reopened..."></textarea>
-                                </label>
-                                <button class="button button--secondary button--full" type="submit">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                                        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/>
-                                    </svg>
-                                    Reopen ticket
-                                </button>
-                            </form>
-                        {% endif %}
-                    {% endif %}
-
                     {# ── Reassign ─────────────────────────────── #}
                     {% if is_granted('ticket.assign', ticket) and app.user.hasPermission('reassign_tickets') and ticket.status.value not in ['CLOSED'] %}
                         <form class="stack-form compact-form" method="post" action="{{ path('ticket_reassign', { id: ticket.id }) }}">
@@ -274,23 +290,6 @@
                             </button>
                         </form>
 
-                        {% if app.user.hasPermission('resolve_tickets') %}
-                            <form class="stack-form compact-form" method="post" action="{{ path('ticket_resolve', { id: ticket.id }) }}">
-                                <input type="hidden" name="_token" value="{{ csrf_token('ticket_resolve_' ~ ticket.id) }}">
-                                <label class="form-field">
-                                    <span>Resolution summary *</span>
-                                    <textarea class="input textarea" name="resolution" rows="3" placeholder="Describe what was done to resolve this ticket (min 10 chars)..."></textarea>
-                                </label>
-                                <button class="button button--primary button--full" type="submit">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-                                        <polyline points="20 6 9 17 4 12"/>
-                                    </svg>
-                                    Mark as Resolved
-                                </button>
-                            </form>
-                        {% else %}
-                            <div class="callout callout--warn">You do not have permission to resolve tickets.</div>
-                        {% endif %}
                     {% endif %}
 
                     {# ── Escalate ─────────────────────────────── #}

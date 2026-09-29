@@ -183,6 +183,7 @@
                             SLA
                         </th>
                         <th>Updated</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -235,9 +236,21 @@
                         </td>
                         <td>{% include 'components/_badge.html.twig' with { label: ticket.slaStatus|replace({'_': ' '})|title, tone: slaTones[ticket.slaStatus]|default('neutral') } only %}</td>
                         <td><span class="muted">{{ ticket.updatedAt|date('M j, H:i') }}</span></td>
+                        <td>
+                            {% if ticket.status.value in ['OPEN', 'REOPENED'] and is_granted('ticket.assign', ticket) %}
+                                <form method="post" action="{{ path('ticket_accept', { id: ticket.id }) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('ticket_accept_' ~ ticket.id) }}">
+                                    <button class="button button--primary button--small" type="submit">Accept</button>
+                                </form>
+                            {% elseif ticket.status.value == 'IN_PROGRESS' and app.user.hasPermission('resolve_tickets') and is_granted('ticket.reply', ticket) %}
+                                <a class="button button--primary button--small" href="{{ path('ticket_show', { id: ticket.id }) }}#ticket-workflow">Resolve</a>
+                            {% else %}
+                                <a class="button button--secondary button--small" href="{{ path('ticket_show', { id: ticket.id }) }}">Open</a>
+                            {% endif %}
+                        </td>
                     </tr>
                 {% else %}
-                    {% include 'components/_table_empty.html.twig' with { colspan: 8, title: 'No matching tickets', message: 'Adjust your filters or create a new customer ticket.' } only %}
+                    {% include 'components/_table_empty.html.twig' with { colspan: 9, title: 'No matching tickets', message: 'Adjust your filters or create a new customer ticket.' } only %}
                 {% endfor %}
                 </tbody>
             </table>

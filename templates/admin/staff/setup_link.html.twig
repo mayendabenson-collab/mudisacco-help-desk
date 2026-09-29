@@ -15,6 +15,7 @@
 <section class="page-section panel-section" style="max-width: 640px;">
     <p class="section-kicker">One-time secure link</p>
     <h2>Send this link to {{ linkData.name }}</h2>
+    <p class="muted">{{ linkData.email }}</p>
 
     <div class="alert alert--error" style="margin-bottom:1.5rem; display:flex; align-items:flex-start; gap:10px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px;">
@@ -23,9 +24,9 @@
         </svg>
         <div>
             <strong>Security notice:</strong>
-            This link is shown only once. Copy it and send it via a secure channel
-            (e.g. encrypted email, secure messaging). Do <strong>not</strong> paste it into a
-            shared document, group chat, or unencrypted email.
+            This one-time link expires after 1 hour. Use the email button below to send a fresh link
+            directly to the employee, or copy this link and share it privately. Do not post it in a
+            shared document or group chat.
         </div>
     </div>
 
@@ -57,10 +58,17 @@
     <dl class="detail-list" style="margin-bottom:1.5rem;">
         <div><dt>Employee</dt><dd>{{ linkData.name }}</dd></div>
         <div><dt>Link purpose</dt><dd>{{ linkData.purpose == 'reset' ? 'Password reset' : 'First-time account setup' }}</dd></div>
-        <div><dt>Expiry</dt><dd>24 hours from generation</dd></div>
+        <div><dt>Expiry</dt><dd>1 hour from generation</dd></div>
     </dl>
 
     <div class="form-actions">
+        {% if linkData.employee_id is defined %}
+            <form method="post" action="{{ path('admin_staff_send_setup_link', { id: linkData.employee_id }) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('staff_setup_email_' ~ linkData.employee_id) }}">
+                <input type="hidden" name="purpose" value="{{ linkData.purpose }}">
+                <button class="button button--primary" type="submit">Email fresh link</button>
+            </form>
+        {% endif %}
         <a class="button button--secondary" href="{{ path('admin_staff_index') }}">Go to staff list</a>
     </div>
 </section>

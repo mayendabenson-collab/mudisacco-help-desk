@@ -276,6 +276,12 @@ class TicketController extends AbstractController
     public function show(Ticket $ticket, EntityManagerInterface $entityManager): Response
     {
         $this->denyAccessUnlessGranted(TicketAccessVoter::VIEW, $ticket);
+        $user = $this->requireUser();
+        $roles = $user->getRoles();
+        $canCloseTicket = in_array(SystemRole::ADMIN->value, $roles, true)
+            || ($this->sameDepartment($user, $ticket)
+                && (in_array(SystemRole::SUPERVISOR->value, $roles, true)
+                    || $user->hasPermission(StaffPermission::CLOSE_TICKETS)));
 
         $auditLogs = $entityManager->getRepository(\App\Entity\AuditLog::class)->findBy([
             'entityType' => 'ticket',
@@ -287,6 +293,7 @@ class TicketController extends AbstractController
             'availableStaff' => $this->staffForDepartment($entityManager, $ticket),
             'availableTeams' => $this->teamsForDepartment($entityManager, $ticket),
             'auditLogs' => $auditLogs,
+            'canCloseTicket' => $canCloseTicket,
         ]);
     }
 

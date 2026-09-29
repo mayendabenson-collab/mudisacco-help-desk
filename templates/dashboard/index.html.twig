@@ -166,11 +166,24 @@
                         <th>Resolved by</th>
                         <th>SLA</th>
                         <th>Updated</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
+                        <td>
+                            {% if ticket.status.value in ['OPEN', 'REOPENED'] and is_granted('ticket.assign', ticket) %}
+                                <form method="post" action="{{ path('ticket_accept', { id: ticket.id }) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('ticket_accept_' ~ ticket.id) }}">
+                                    <button class="button button--primary button--small" type="submit">Accept</button>
+                                </form>
+                            {% elseif ticket.status.value == 'IN_PROGRESS' and app.user.hasPermission('resolve_tickets') and is_granted('ticket.reply', ticket) %}
+                                <a class="button button--primary button--small" href="{{ path('ticket_show', { id: ticket.id }) }}#ticket-workflow">Resolve</a>
+                            {% else %}
+                                <a class="button button--secondary button--small" href="{{ path('ticket_show', { id: ticket.id }) }}">Open</a>
+                            {% endif %}
+                        </td>
                 <tbody>
                 {% for ticket in recentTickets %}
-                    {% set initials = ticket.member.displayName|split(' ')|map(w => w|slice(0, 1)|upper)|join('')|slice(0, 2) %}
+                    {% include 'components/_table_empty.html.twig' with { colspan: 9, title: 'No tickets yet', message: is_granted('ROLE_MEMBER') ? 'Create your first support ticket when you need help.' : 'Tickets assigned to your department will appear here.' } only %}
                     {% set resolvedEntry = ticket.statusHistory|filter(h => h.toStatus.value == 'RESOLVED')|last %}
                     <tr>
                         <td>

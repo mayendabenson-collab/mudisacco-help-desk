@@ -12,6 +12,7 @@ use App\Entity\Role;
 use App\Entity\Team;
 use App\Entity\Ticket;
 use App\Entity\User;
+use App\Enum\StaffPermission;
 use App\Security\TicketAccessVoter;
 use App\Security\SystemRole;
 use PHPUnit\Framework\TestCase;
@@ -38,6 +39,35 @@ class TicketAccessVoterTest extends TestCase
         $ticket = $this->ticket($department)->setAssignedTeam($team);
 
         $this->assertFalse($this->vote(TicketAccessVoter::REPLY, $ticket, $staff));
+    }
+
+    public function testStaffWithResolvePermissionCanReplyToAssignedDepartmentTicket(): void
+    {
+        $department = $this->department('IT');
+        $staff = $this->staffUser($department, withHandlePermission: false)
+            ->grantPermission(StaffPermission::RESOLVE_TICKETS);
+        $ticket = $this->ticket($department)->setAssignedTo($staff);
+
+        $this->assertTrue($this->vote(TicketAccessVoter::REPLY, $ticket, $staff));
+    }
+
+    public function testStaffWithResolvePermissionCanAcceptUnassignedDepartmentTicket(): void
+    {
+        $department = $this->department('IT');
+        $staff = $this->staffUser($department, withHandlePermission: false)
+            ->grantPermission(StaffPermission::RESOLVE_TICKETS);
+        $ticket = $this->ticket($department);
+
+        $this->assertTrue($this->vote(TicketAccessVoter::ASSIGN, $ticket, $staff));
+    }
+
+    public function testStaffWithResolvePermissionCannotAcceptTicketOutsideDepartment(): void
+    {
+        $staff = $this->staffUser($this->department('IT'), withHandlePermission: false)
+            ->grantPermission(StaffPermission::RESOLVE_TICKETS);
+        $ticket = $this->ticket($this->department('FINANCE'));
+
+        $this->assertFalse($this->vote(TicketAccessVoter::ASSIGN, $ticket, $staff));
     }
 
     public function testSupervisorWithEscalationPermissionCanEscalateDepartmentTicket(): void

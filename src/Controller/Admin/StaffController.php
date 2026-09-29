@@ -82,7 +82,7 @@ class StaffController extends AbstractController
                 $setupUrl = $this->generateUrl('password_reset', ['token' => $tokenData['token']], UrlGeneratorInterface::ABSOLUTE_URL);
 
                 // Send account setup email directly to the staff member's email address
-                $notificationRouter->sendDirectEmail(
+                $invitationSent = $notificationRouter->sendDirectEmail(
                     $employee->getEmail(),
                     $employee->getFullName(),
                     'Set up your Mudi SACCO staff account',
@@ -104,12 +104,19 @@ class StaffController extends AbstractController
                 ], $request->getClientIp());
                 $entityManager->flush();
 
-                $this->addFlash('success', 'Employee account created and invitation email sent to ' . $employee->getEmail() . '.');
+                $this->addFlash(
+                    $invitationSent ? 'success' : 'error',
+                    $invitationSent
+                        ? 'Employee account created and invitation email sent to ' . $employee->getEmail() . '.'
+                        : 'Employee account created, but the invitation email could not be sent. Use the email button to retry.'
+                );
 
                 // Store setup URL in session and redirect to dedicated page — never show it in a flash.
                 $request->getSession()->set('staff_setup_link', [
                     'url'  => $setupUrl,
                     'name' => $employee->getFullName(),
+                    'email' => $employee->getEmail(),
+                    'employee_id' => $employee->getId()->toRfc4122(),
                     'purpose' => 'setup',
                 ]);
 
@@ -206,6 +213,57 @@ class StaffController extends AbstractController
         return $this->redirectToRoute('admin_staff_index');
     }
 
+    #[Route('/{id}/send-setup-link', name: 'admin_staff_send_setup_link', methods: ['POST'])]
+    public function sendSetupLink(
+        User $employee,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        PasswordResetService $passwordResetService,
+        NotificationRouter $notificationRouter,
+        AuditLogger $auditLogger,
+    ): Response {
+        $this->denyAccessUnlessGranted(SystemRole::ADMIN->value);
+
+        if (!$this->isCsrfTokenValid('staff_setup_email_' . $employee->getId()->toRfc4122(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Invalid setup email token.');
+        }
+
+        $purpose = $request->request->get('purpose') === 'reset'
+            ? PasswordResetToken::PURPOSE_RESET
+            : PasswordResetToken::PURPOSE_SETUP;
+        $employee->setPasswordChangeRequired(true);
+        $tokenData = $passwordResetService->createToken($employee, $purpose, $this->requireAdmin(), $request->getClientIp());
+        $setupUrl = $this->generateUrl('password_reset', ['token' => $tokenData['token']], UrlGeneratorInterface::ABSOLUTE_URL);
+        $emailSent = $notificationRouter->sendDirectEmail(
+            $employee->getEmail(),
+            $employee->getFullName(),
+            $purpose === PasswordResetToken::PURPOSE_SETUP ? 'Set up your Mudi SACCO staff account' : 'Reset your Mudi SACCO staff password',
+            sprintf(
+                "Hello %s,\n\nUse the secure link below to %s your Mudi SACCO Help Desk account:\n\n%s\n\nThis link expires in 1 hour. If you have any questions, please contact your administrator.",
+                $employee->getFullName(),
+                $purpose === PasswordResetToken::PURPOSE_SETUP ? 'set up' : 'reset the password for',
+                $setupUrl
+            ),
+            ['link' => $setupUrl]
+        );
+
+        $auditLogger->record($this->requireAdmin(), 'staff.setup_link_emailed', 'user', $employee->getId(), [
+            'email' => $employee->getEmail(),
+            'purpose' => $purpose,
+            'sent' => $emailSent,
+        ], $request->getClientIp());
+        $entityManager->flush();
+
+        $this->addFlash(
+            $emailSent ? 'success' : 'error',
+            $emailSent
+                ? 'A fresh password link was emailed to ' . $employee->getEmail() . '.'
+                : 'The email could not be sent. Check the mailer configuration and try again.'
+        );
+
+        return $this->redirectToRoute('admin_staff_index');
+    }
+
     #[Route('/{id}/reset-password', name: 'admin_staff_reset_password', methods: ['POST'])]
     public function resetPassword(
         User $employee,
@@ -233,6 +291,8 @@ class StaffController extends AbstractController
         $request->getSession()->set('staff_setup_link', [
             'url'     => $resetUrl,
             'name'    => $employee->getFullName(),
+            'email'   => $employee->getEmail(),
+            'employee_id' => $employee->getId()->toRfc4122(),
             'purpose' => 'reset',
         ]);
 
