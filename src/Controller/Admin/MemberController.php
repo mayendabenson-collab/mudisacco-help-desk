@@ -13,6 +13,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Uid\Uuid;
 
 #[Route('/admin/members')]
 class MemberController extends AbstractController
@@ -93,24 +94,28 @@ class MemberController extends AbstractController
             }
 
             if (!$errors) {
-                $member->setMemberNumber($memberNumber);
-                $member->setDisplayName($displayName);
-                $member->setPrimaryPhone($primaryPhone ?: null);
-                $member->setEmail($email ?: null);
-                $member->setStatus(MemberStatus::from($status));
+                try {
+                    $member->setMemberNumber($memberNumber);
+                    $member->setDisplayName($displayName);
+                    $member->setPrimaryPhone($primaryPhone ?: null);
+                    $member->setEmail($email ?: null);
+                    $member->setStatus(MemberStatus::tryFrom(strtoupper($status)) ?? MemberStatus::ACTIVE);
 
-                if ($branchId) {
-                    $branch = $entityManager->getRepository(Branch::class)->find($branchId);
-                    if ($branch instanceof Branch) {
-                        $member->setBranch($branch);
+                    if ($branchId !== '' && Uuid::isValid($branchId)) {
+                        $branch = $entityManager->getRepository(Branch::class)->find($branchId);
+                        if ($branch instanceof Branch) {
+                            $member->setBranch($branch);
+                        }
                     }
+
+                    $entityManager->persist($member);
+                    $entityManager->flush();
+
+                    $this->addFlash('success', "Member {$memberNumber} created successfully.");
+                    return $this->redirectToRoute('admin_members_index');
+                } catch (\Throwable $e) {
+                    $errors[] = 'Could not save member: ' . $e->getMessage();
                 }
-
-                $entityManager->persist($member);
-                $entityManager->flush();
-
-                $this->addFlash('success', "Member {$memberNumber} created successfully.");
-                return $this->redirectToRoute('admin_members_index');
             }
         }
 
@@ -149,23 +154,25 @@ class MemberController extends AbstractController
             }
 
             if (!$errors) {
-                $member->setDisplayName($displayName);
-                $member->setPrimaryPhone($primaryPhone ?: null);
-                $member->setEmail($email ?: null);
-                $member->setStatus(MemberStatus::from($status));
+                try {
+                    $member->setDisplayName($displayName);
+                    $member->setPrimaryPhone($primaryPhone ?: null);
+                    $member->setEmail($email ?: null);
+                    $member->setStatus(MemberStatus::tryFrom(strtoupper($status)) ?? MemberStatus::ACTIVE);
 
-                if ($branchId) {
-                    $branch = $entityManager->getRepository(Branch::class)->find($branchId);
-                    if ($branch instanceof Branch) {
-                        $member->setBranch($branch);
+                    if ($branchId !== '' && Uuid::isValid($branchId)) {
+                        $branch = $entityManager->getRepository(Branch::class)->find($branchId);
+                        $member->setBranch($branch instanceof Branch ? $branch : null);
+                    } else {
+                        $member->setBranch(null);
                     }
-                } else {
-                    $member->setBranch(null);
-                }
 
-                $entityManager->flush();
-                $this->addFlash('success', "Member {$member->getMemberNumber()} updated successfully.");
-                return $this->redirectToRoute('admin_members_index');
+                    $entityManager->flush();
+                    $this->addFlash('success', "Member {$member->getMemberNumber()} updated successfully.");
+                    return $this->redirectToRoute('admin_members_index');
+                } catch (\Throwable $e) {
+                    $errors[] = 'Could not update member: ' . $e->getMessage();
+                }
             }
         }
 
@@ -191,11 +198,16 @@ class MemberController extends AbstractController
             return $this->redirectToRoute('admin_members_index');
         }
 
-        $memberNumber = $member->getMemberNumber();
-        $entityManager->remove($member);
-        $entityManager->flush();
+        try {
+            $memberNumber = $member->getMemberNumber();
+            $entityManager->remove($member);
+            $entityManager->flush();
 
-        $this->addFlash('success', "Member $memberNumber deleted.");
+            $this->addFlash('success', "Member $memberNumber deleted.");
+        } catch (\Throwable $e) {
+            $this->addFlash('error', 'Cannot delete member because they have associated tickets or audit records.');
+        }
+
         return $this->redirectToRoute('admin_members_index');
     }
 

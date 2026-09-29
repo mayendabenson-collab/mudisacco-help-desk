@@ -5,6 +5,8 @@ framework:
     http_method_override: false
     handle_all_throwables: true
     csrf_protection: true
+    trusted_proxies: '%env(TRUSTED_PROXIES)%'
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-port', 'x-forwarded-proto']
 
     session:
         name: MUDI_SUPPORT_SESSID

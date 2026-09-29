@@ -30,6 +30,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Uid\Uuid;
 
 #[Route('/tickets')]
 class TicketController extends AbstractController
@@ -176,7 +177,11 @@ class TicketController extends AbstractController
         } else {
             $memberId = (string) $request->request->get('member_id', $request->query->get('member_id', ''));
             if ($memberId !== '') {
-                $selectedMember = $entityManager->getRepository(Member::class)->find($memberId);
+                if (Uuid::isValid($memberId)) {
+                    $selectedMember = $entityManager->getRepository(Member::class)->find($memberId);
+                } else {
+                    $selectedMember = $entityManager->getRepository(Member::class)->findOneBy(['memberNumber' => strtoupper(trim($memberId))]);
+                }
             }
         }
 
@@ -192,7 +197,7 @@ class TicketController extends AbstractController
             $subject = trim((string) $request->request->get('subject'));
             $description = trim((string) $request->request->get('description'));
             $categoryId = (string) $request->request->get('category');
-            $category = $categoryId !== '' ? $entityManager->getRepository(Category::class)->find($categoryId) : null;
+            $category = ($categoryId !== '' && Uuid::isValid($categoryId)) ? $entityManager->getRepository(Category::class)->find($categoryId) : null;
             $attachment = $request->files->get('attachment');
 
             if (!$category instanceof Category || !$category->isActive()) {
@@ -212,42 +217,46 @@ class TicketController extends AbstractController
             }
 
             if ($errors === [] && $selectedMember instanceof Member && $category instanceof Category) {
-                if ($isMember) {
-                    $ticket = $ticketService->createForMember(
-                        $user,
-                        $category,
-                        $subject,
-                        $description,
-                        $request->getClientIp()
-                    );
-                } else {
-                    $branchId = (string) $request->request->get('branch');
-                    $branch = $branchId !== '' ? $entityManager->getRepository(Branch::class)->find($branchId) : null;
-                    $channelVal = (string) $request->request->get('channel');
-                    $channel = TicketChannel::tryFrom($channelVal) ?? TicketChannel::PHONE;
-                    $priorityVal = (string) $request->request->get('priority');
-                    $priority = TicketPriority::tryFrom($priorityVal) ?? ($category->getDefaultPriority() ?? TicketPriority::MEDIUM);
+                try {
+                    if ($isMember) {
+                        $ticket = $ticketService->createForMember(
+                            $user,
+                            $category,
+                            $subject,
+                            $description,
+                            $request->getClientIp()
+                        );
+                    } else {
+                        $branchId = (string) $request->request->get('branch');
+                        $branch = ($branchId !== '' && Uuid::isValid($branchId)) ? $entityManager->getRepository(Branch::class)->find($branchId) : null;
+                        $channelVal = (string) $request->request->get('channel');
+                        $channel = TicketChannel::tryFrom($channelVal) ?? TicketChannel::PHONE;
+                        $priorityVal = (string) $request->request->get('priority');
+                        $priority = TicketPriority::tryFrom($priorityVal) ?? ($category->getDefaultPriority() ?? TicketPriority::MEDIUM);
 
-                    $ticket = $ticketService->createByStaffForMember(
-                        $user,
-                        $selectedMember,
-                        $category,
-                        $subject,
-                        $description,
-                        $priority,
-                        $channel,
-                        $branch,
-                        $request->getClientIp()
-                    );
+                        $ticket = $ticketService->createByStaffForMember(
+                            $user,
+                            $selectedMember,
+                            $category,
+                            $subject,
+                            $description,
+                            $priority,
+                            $channel,
+                            $branch,
+                            $request->getClientIp()
+                        );
+                    }
+
+                    if ($attachment instanceof UploadedFile && $attachment->getError() !== UPLOAD_ERR_NO_FILE) {
+                        $attachmentService->store($ticket, null, $user, $attachment, $request->getClientIp());
+                    }
+
+                    $this->addFlash('success', 'Ticket ' . $ticket->getReference() . ' was successfully created.');
+
+                    return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()->toRfc4122()]);
+                } catch (\Throwable $e) {
+                    $errors[] = 'Could not create ticket: ' . $e->getMessage();
                 }
-
-                if ($attachment instanceof UploadedFile && $attachment->getError() !== UPLOAD_ERR_NO_FILE) {
-                    $attachmentService->store($ticket, null, $user, $attachment, $request->getClientIp());
-                }
-
-                $this->addFlash('success', 'Ticket ' . $ticket->getReference() . ' was successfully created.');
-
-                return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()->toRfc4122()]);
             }
         }
 
@@ -469,6 +478,8 @@ class TicketController extends AbstractController
             }
         } catch (DomainException $exception) {
             $this->addFlash('error', $exception->getMessage());
+        } catch (\Throwable $exception) {
+            $this->addFlash('error', 'Could not close ticket: ' . $exception->getMessage());
         }
 
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()->toRfc4122()]);
@@ -503,6 +514,8 @@ class TicketController extends AbstractController
                 $this->addFlash('success', 'Ticket reopened.');
             } catch (DomainException $exception) {
                 $this->addFlash('error', $exception->getMessage());
+            } catch (\Throwable $exception) {
+                $this->addFlash('error', 'Could not reopen ticket: ' . $exception->getMessage());
             }
         }
 

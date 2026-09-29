@@ -211,7 +211,7 @@ class TicketApiController extends AbstractController
             'department' => $ticket->getDepartment()->getName(),
             'category' => $ticket->getCategory()->getName(),
             'assigned_to' => $ticket->getAssignedTo()?->getFullName(),
-            'assigned_team_id' => $ticket->getAssignedTeam()?->getId()->toRfc4122(),
+            'assigned_team_id' => $ticket->getAssignedTeam()?->getId()?->toRfc4122(),
             'assigned_team' => $ticket->getAssignedTeam()?->getName(),
             'sla_due_at' => $ticket->getSlaDueAt()?->format(DATE_ATOM),
             'sla_status' => $ticket->getSlaStatus(),

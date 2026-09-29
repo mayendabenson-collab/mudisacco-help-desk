@@ -87,24 +87,24 @@ class NotificationRouter
             return;
         }
 
-        $textBody = $body;
-        $htmlBody = $this->buildHtmlBody($subject, $body, $payload);
-
-        $email = (new Email())
-            ->from(new Address($this->mailerFromAddress, $this->mailerFromName))
-            ->to(new Address($recipientEmail, $recipient->getFullName()))
-            ->subject('[Mudi SACCO Support] ' . $subject)
-            ->text($textBody)
-            ->html($htmlBody);
-
         try {
+            $textBody = $body;
+            $htmlBody = $this->buildHtmlBody($subject, $body, $payload);
+
+            $email = (new Email())
+                ->from(new Address($this->mailerFromAddress, $this->mailerFromName))
+                ->to(new Address($recipientEmail, $recipient->getFullName()))
+                ->subject('[Mudi SACCO Support] ' . $subject)
+                ->text($textBody)
+                ->html($htmlBody);
+
             $this->mailer->send($email);
             $notification->markSent();
             $this->logger->info('Email notification sent.', [
                 'recipient' => $recipientEmail,
                 'subject'   => $subject,
             ]);
-        } catch (TransportExceptionInterface $e) {
+        } catch (\Throwable $e) {
             $this->logger->error('Failed to send email notification.', [
                 'recipient' => $recipientEmail,
                 'subject'   => $subject,
@@ -151,6 +151,50 @@ class NotificationRouter
         </body>
         </html>
         HTML;
+    }
+
+    /**
+     * Sends an email directly to a recipient email address without requiring a persisted User entity.
+     * Useful for member welcome emails, staff invitations, and password reset links.
+     */
+    public function sendDirectEmail(
+        string $toEmail,
+        string $toName,
+        string $subject,
+        string $body,
+        array $payload = []
+    ): bool {
+        if (!filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+            $this->logger->warning('Skipping direct email — invalid recipient email.', [
+                'recipient' => $toEmail,
+            ]);
+            return false;
+        }
+
+        try {
+            $htmlBody = $this->buildHtmlBody($subject, $body, $payload);
+
+            $email = (new Email())
+                ->from(new Address($this->mailerFromAddress, $this->mailerFromName))
+                ->to(new Address($toEmail, $toName !== '' ? $toName : $toEmail))
+                ->subject('[' . $this->mailerFromName . '] ' . $subject)
+                ->text($body)
+                ->html($htmlBody);
+
+            $this->mailer->send($email);
+            $this->logger->info('Direct email sent successfully.', [
+                'recipient' => $toEmail,
+                'subject'   => $subject,
+            ]);
+            return true;
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to send direct email.', [
+                'recipient' => $toEmail,
+                'subject'   => $subject,
+                'error'     => $e->getMessage(),
+            ]);
+            return false;
+        }
     }
 
     /**

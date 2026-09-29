@@ -13,6 +13,7 @@ use App\Enum\UserType;
 use App\Security\PasswordReset\PasswordResetService;
 use App\Security\SystemRole;
 use App\Service\Audit\AuditLogger;
+use App\Service\Notification\NotificationRouter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -53,6 +54,7 @@ class StaffController extends AbstractController
         UserPasswordHasherInterface $passwordHasher,
         PasswordResetService $passwordResetService,
         AuditLogger $auditLogger,
+        NotificationRouter $notificationRouter,
     ): Response {
         $this->denyAccessUnlessGranted(SystemRole::ADMIN->value);
 
@@ -79,6 +81,21 @@ class StaffController extends AbstractController
                 $tokenData = $passwordResetService->createToken($employee, PasswordResetToken::PURPOSE_SETUP, $this->requireAdmin(), $request->getClientIp());
                 $setupUrl = $this->generateUrl('password_reset', ['token' => $tokenData['token']], UrlGeneratorInterface::ABSOLUTE_URL);
 
+                // Send account setup email directly to the staff member's email address
+                $notificationRouter->sendDirectEmail(
+                    $employee->getEmail(),
+                    $employee->getFullName(),
+                    'Set up your Mudi SACCO staff account',
+                    sprintf(
+                        "Hello %s,\n\nAn account has been created for you on the Mudi SACCO Help Desk.\n\nRole: %s\nDepartment: %s\n\nPlease click the secure link below to set your password and access the portal:\n%s\n\nThis setup link is valid for 1 hour. If you have any questions, please contact your administrator.",
+                        $employee->getFullName(),
+                        $this->primaryRole($employee),
+                        $employee->getDepartment()?->getName() ?? 'General',
+                        $setupUrl
+                    ),
+                    ['link' => $setupUrl]
+                );
+
                 $auditLogger->record($this->requireAdmin(), 'staff.created', 'user', $employee->getId(), [
                     'email' => $employee->getEmail(),
                     'role' => $this->primaryRole($employee),
@@ -87,7 +104,7 @@ class StaffController extends AbstractController
                 ], $request->getClientIp());
                 $entityManager->flush();
 
-                $this->addFlash('success', 'Employee account created.');
+                $this->addFlash('success', 'Employee account created and invitation email sent to ' . $employee->getEmail() . '.');
 
                 // Store setup URL in session and redirect to dedicated page — never show it in a flash.
                 $request->getSession()->set('staff_setup_link', [

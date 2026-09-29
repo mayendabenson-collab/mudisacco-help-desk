@@ -11,12 +11,12 @@ class TicketStatusWorkflow
 {
     /** @var array<string, list<string>> */
     private const TRANSITIONS = [
-        'OPEN' => ['IN_PROGRESS'],
-        'IN_PROGRESS' => ['WAITING_FOR_MEMBER', 'RESOLVED'],
-        'WAITING_FOR_MEMBER' => ['IN_PROGRESS'],
+        'OPEN' => ['IN_PROGRESS', 'CLOSED'],
+        'IN_PROGRESS' => ['WAITING_FOR_MEMBER', 'RESOLVED', 'CLOSED'],
+        'WAITING_FOR_MEMBER' => ['IN_PROGRESS', 'CLOSED'],
         'RESOLVED' => ['CLOSED', 'REOPENED'],
-        'REOPENED' => ['IN_PROGRESS'],
-        'CLOSED' => [],
+        'REOPENED' => ['IN_PROGRESS', 'CLOSED'],
+        'CLOSED' => ['REOPENED'],
     ];
 
     public function canTransition(TicketStatus $from, TicketStatus $to): bool

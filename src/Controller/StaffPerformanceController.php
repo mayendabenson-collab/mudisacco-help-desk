@@ -94,7 +94,7 @@ class StaffPerformanceController extends AbstractController
                 $endAt = $nextAssignment instanceof TicketAssignment ? $nextAssignment->getCreatedAt() : $closedAt;
                 $seconds = max(0, $endAt->getTimestamp() - $assignment->getCreatedAt()->getTimestamp());
                 $assignedTo = $assignment->getAssignedTo();
-                $staffKey = $assignedTo?->getId()->toRfc4122() ?? 'unassigned';
+                $staffKey = $assignedTo?->getId()?->toRfc4122() ?? 'unassigned';
                 $staffName = $assignedTo?->getFullName() ?: 'Unassigned';
                 $isClosingAssignment = $nextAssignment === null;
 
