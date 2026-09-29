@@ -8,6 +8,7 @@ use App\Entity\Notification;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -42,6 +43,41 @@ class NotificationController extends AbstractController
         $entityManager->flush();
 
         return $this->redirectToRoute('notification_index');
+    }
+
+    #[Route('/unread-count', name: 'notification_unread', methods: ['GET'])]
+    public function unreadCount(EntityManagerInterface $entityManager): JsonResponse
+    {
+        $user = $this->requireUser();
+
+        $unreadCount = (int) $entityManager->createQueryBuilder()
+            ->select('COUNT(n.id)')
+            ->from(Notification::class, 'n')
+            ->where('n.recipient = :user')
+            ->andWhere('n.readAt IS NULL')
+            ->setParameter('user', $user)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        $latest = $entityManager->createQueryBuilder()
+            ->select('n')
+            ->from(Notification::class, 'n')
+            ->where('n.recipient = :user')
+            ->andWhere('n.readAt IS NULL')
+            ->orderBy('n.createdAt', 'DESC')
+            ->setParameter('user', $user)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $this->json([
+            'unread_count' => $unreadCount,
+            'latest' => $latest instanceof Notification ? [
+                'id' => $latest->getId()->toRfc4122(),
+                'subject' => $latest->getSubject(),
+                'body' => $latest->getBody(),
+            ] : null,
+        ]);
     }
 
     private function requireUser(): User

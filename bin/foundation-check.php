@@ -16,11 +16,15 @@ $ticket = new Ticket();
 $firstTransition = $lifecycle->transition($ticket, TicketStatus::IN_PROGRESS, reason: 'Foundation smoke test');
 
 $invalidTransitionRejected = false;
+$invalidTicket = new Ticket();
 try {
-    $lifecycle->transition($ticket, TicketStatus::CLOSED);
+    $lifecycle->transition($invalidTicket, TicketStatus::CLOSED);
 } catch (DomainException) {
     $invalidTransitionRejected = true;
 }
+
+$lifecycle->transition($ticket, TicketStatus::WAITING_FOR_MEMBER);
+$lifecycle->transition($ticket, TicketStatus::IN_PROGRESS);
 
 $resolvedAt = new DateTimeImmutable('2026-09-15 10:30:00');
 $lifecycle->transition($ticket, TicketStatus::RESOLVED, occurredAt: $resolvedAt);
@@ -34,7 +38,7 @@ $checks = [
     'in_progress_to_waiting' => $workflow->canTransition(TicketStatus::IN_PROGRESS, TicketStatus::WAITING_FOR_MEMBER),
     'waiting_to_in_progress' => $workflow->canTransition(TicketStatus::WAITING_FOR_MEMBER, TicketStatus::IN_PROGRESS),
     'resolved_to_reopened' => $workflow->canTransition(TicketStatus::RESOLVED, TicketStatus::REOPENED),
-    'closed_has_no_next_statuses' => $workflow->nextStatuses(TicketStatus::CLOSED) === [],
+    'closed_can_reopen' => $workflow->canTransition(TicketStatus::CLOSED, TicketStatus::REOPENED),
     'open_cannot_skip_to_closed' => !$workflow->canTransition(TicketStatus::OPEN, TicketStatus::CLOSED),
     'service_transition_changes_ticket_status' => $ticket->getStatus() === TicketStatus::REOPENED,
     'service_transition_records_from_status' => $firstTransition->getFromStatus() === TicketStatus::OPEN,
@@ -42,7 +46,7 @@ $checks = [
     'invalid_service_transition_rejected' => $invalidTransitionRejected,
     'resolved_sets_timestamp' => $resolvedTimestampWasApplied,
     'reopened_clears_resolution_timestamp' => $reopenClearedResolution,
-    'status_history_is_recorded' => $ticket->getStatusHistory()->count() === 3,
+    'status_history_is_recorded' => $ticket->getStatusHistory()->count() === 5,
 ];
 
 $failed = array_keys(array_filter($checks, static fn (bool $passed): bool => !$passed));

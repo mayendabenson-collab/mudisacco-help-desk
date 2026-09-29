@@ -8,21 +8,27 @@ use App\Entity\Member;
 use App\Entity\Role;
 use App\Entity\User;
 use App\Enum\MemberStatus;
+use App\Enum\NotificationChannel;
 use App\Enum\UserType;
 use App\Security\SystemRole;
 use App\Service\Audit\AuditLogger;
+use App\Service\Notification\NotificationRouter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class RegistrationController extends AbstractController
 {
     #[Route('/register', name: 'member_register', methods: ['GET', 'POST'])]
-    public function register(Request $request, EntityManagerInterface $entityManager): Response
-    {
+    public function register(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        NotificationRouter $notificationRouter,
+    ): Response {
         $errors = [];
 
         if ($request->isMethod('POST')) {
@@ -42,11 +48,20 @@ class RegistrationController extends AbstractController
 
             if ($errors === [] && $member instanceof Member) {
                 $otp = (string) random_int(100000, 999999);
+                $verificationUrl = $this->generateUrl('member_register_verify', [], UrlGeneratorInterface::ABSOLUTE_URL);
                 $request->getSession()->set('member_registration', [
                     'member_id' => $member->getId()->toRfc4122(),
                     'otp_hash' => hash('sha256', $otp),
                     'expires_at' => (new \DateTimeImmutable('+10 minutes'))->format(DATE_ATOM),
                 ]);
+
+                $notificationRouter->sendDirectEmail(
+                    (string) $member->getEmail(),
+                    $member->getDisplayName(),
+                    'Verify your Mudi SACCO portal registration',
+                    "Hello {$member->getDisplayName()},\n\nUse this verification code to complete your portal registration:\n\n{$otp}\n\nAlternatively open the registration page here:\n{$verificationUrl}\n\nThis code expires in 10 minutes.",
+                    ['code' => $otp, 'verification_url' => $verificationUrl]
+                );
 
                 if ($this->getParameter('kernel.environment') !== 'prod') {
                     $this->addFlash('success', 'Development OTP: ' . $otp);
@@ -67,6 +82,7 @@ class RegistrationController extends AbstractController
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
         AuditLogger $auditLogger,
+        NotificationRouter $notificationRouter,
     ): Response {
         $sessionData = $request->getSession()->get('member_registration');
         if (!is_array($sessionData) || !isset($sessionData['member_id'], $sessionData['otp_hash'], $sessionData['expires_at'])) {
@@ -130,6 +146,22 @@ class RegistrationController extends AbstractController
 
                 $entityManager->persist($user);
                 $entityManager->flush();
+
+                $notificationRouter->sendDirectEmail(
+                    $email,
+                    $member->getDisplayName(),
+                    'Your Mudi SACCO portal account is ready',
+                    "Hello {$member->getDisplayName()},\n\nYour Mudi SACCO support portal account has been created successfully.\n\nEmail: {$email}\n\nSign in here: {$this->generateUrl('app_login', [], UrlGeneratorInterface::ABSOLUTE_URL)}\n\nIf you need help, contact the SACCO help desk.",
+                    ['event' => 'MEMBER_ACCOUNT_READY', 'email' => $email, 'login_url' => $this->generateUrl('app_login', [], UrlGeneratorInterface::ABSOLUTE_URL)]
+                );
+
+                $notificationRouter->notify(
+                    $user,
+                    'Your portal account is ready',
+                    'Your Mudi SACCO support portal account has been created and is ready to use.',
+                    ['event' => 'MEMBER_ACCOUNT_READY', 'member_number' => $member->getMemberNumber()],
+                    NotificationChannel::IN_APP,
+                );
 
                 $auditLogger->record($user, 'member.registered', 'member', $member->getId(), [
                     'member_number' => $member->getMemberNumber(),

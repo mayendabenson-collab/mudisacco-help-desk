@@ -11,7 +11,7 @@ class TicketStatusWorkflow
 {
     /** @var array<string, list<string>> */
     private const TRANSITIONS = [
-        'OPEN' => ['IN_PROGRESS', 'CLOSED'],
+        'OPEN' => ['IN_PROGRESS'],
         'IN_PROGRESS' => ['WAITING_FOR_MEMBER', 'RESOLVED', 'CLOSED'],
         'WAITING_FOR_MEMBER' => ['IN_PROGRESS', 'CLOSED'],
         'RESOLVED' => ['CLOSED', 'REOPENED'],
