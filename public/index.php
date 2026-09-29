@@ -12,17 +12,10 @@ if (!file_exists($autoloadFile)) {
     exit;
 }
 
-require_once $autoloadFile;
-
-// Trust reverse proxies (Railway / cloud edge load balancers) so HTTPS and headers are honored
-Request::setTrustedProxies(
-    explode(',', $_SERVER['TRUSTED_PROXIES'] ?? $_ENV['TRUSTED_PROXIES'] ?? '127.0.0.1,REMOTE_ADDR,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16'),
-    Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_HOST | Request::HEADER_X_FORWARDED_PORT | Request::HEADER_X_FORWARDED_PROTO
-);
-
 if (file_exists($runtimeFile)) {
     require_once $runtimeFile;
 } elseif (file_exists($autoloadFile)) {
+    require_once $autoloadFile;
     if (file_exists(dirname(__DIR__).'/.env')) {
         (new \Symfony\Component\Dotenv\Dotenv())->bootEnv(dirname(__DIR__).'/.env');
     }
